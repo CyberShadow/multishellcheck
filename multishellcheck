@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# shellcheck disable=SC2030,SC2031
+
+set -euo pipefail
+shopt -s lastpipe
+
+if [[ $# -eq 0 ]]
+then
+	echo "Usage: $0 MAIN-FILE-NAME [SHELLCHECK-OPTIONS...]"
+	exit 1
+fi
+
+lines=()
+
+function read_file()
+{
+	local fn=$1
+
+	local lineno=1
+
+	while read -r line
+	do
+		printf "%s\n" "$line"
+		lines+=("$fn:$lineno")
+		lineno=$((lineno+1))
+	done < "$fn"
+}
+
+tmp_script=.multishellcheck
+
+read_file "$1" > "$tmp_script"
+
+shift
+
+function getline()
+{
+	local lineno=$1
+
+	# bash arrays are 0-based, but line numbers are 1-based
+	lineno=$((lineno-1))
+
+	local lineinfo=${lines[$lineno]}
+
+	ofile=${lineinfo%:*}
+	oline=${lineinfo##*:}
+}
+
+! {
+	shellcheck "$@" "$tmp_script"
+	printf "multishellcheck-status=%s\n" $? ;
+} | \
+	while read -r line
+	do
+		if [[ "$line" == multishellcheck-status=* ]]
+		then
+			status=${line#*=}
+		elif [[ "$line" =~ ^In\ $tmp_script\ line\ ([0-9]+):$ ]]
+		then
+			getline "${BASH_REMATCH[1]}"
+			printf "In %s line %s:\n" "$ofile" "$oline"
+		elif [[ "$line" == *$tmp_script* ]]
+		then
+			printf "Unrecognized ShellCheck output format: %s\n" "$line"
+			exit 1
+		else
+			printf "%s\n" "$line"
+		fi
+	done
+
+rm "$tmp_script"
+
+exit "$status"
