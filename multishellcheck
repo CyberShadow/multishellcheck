@@ -55,10 +55,14 @@ function getline()
 		if [[ "$line" == multishellcheck-status=* ]]
 		then
 			status=${line#*=}
-		elif [[ "$line" =~ ^In\ $tmp_script\ line\ ([0-9]+):$ ]]
+		elif [[ "$line" =~ ^In\ $tmp_script\ line\ ([0-9]+):$ ]] # default format
 		then
 			getline "${BASH_REMATCH[1]}"
 			printf "In %s line %s:\n" "$ofile" "$oline"
+		elif [[ "$line" =~ ^\[1mIn\ $tmp_script\ line\ ([0-9]+):\[0m$ ]] # -Calways
+		then
+			getline "${BASH_REMATCH[1]}"
+			printf "[1mIn %s line %s:[0m\n" "$ofile" "$oline"
 		elif [[ "$line" == *$tmp_script* ]]
 		then
 			printf "Unrecognized ShellCheck output format: %s\n" "$line"
