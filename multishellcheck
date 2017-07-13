@@ -46,6 +46,8 @@ function getline()
 	oline=${lineinfo##*:}
 }
 
+current_file=
+
 ! {
 	shellcheck "$@" "$tmp_script"
 	printf "multishellcheck-status=%s\n" $? ;
@@ -63,6 +65,23 @@ function getline()
 		then
 			getline "${BASH_REMATCH[1]}"
 			printf "[1mIn %s line %s:[0m\n" "$ofile" "$oline"
+		elif [[ "$line" == "<file name='$tmp_script' >" ]] # checkstyle - file name
+		then
+			:
+		elif [[ "$line" =~ ^\<error\ line=\'([0-9]+)\'(.*)$ ]] # checkstyle - error line
+		then
+			getline "${BASH_REMATCH[1]}"
+			if [[ "${current_file:-}" != "$ofile" ]]
+			then
+				if [[ "${current_file:-}" != "" ]]
+				then
+					printf "</file>\n"
+				fi
+				escaped_fn=$(printf "%s" "$ofile" | sed -ze 's/&/&amp;/g' -e 's/</&lt;/g' -e 's/>/&gt;/g')
+				printf "<file name='%s' >\n" "$escaped_fn"
+				current_file=$ofile
+			fi
+			printf "<error line='%s'%s\n" "$oline" "${BASH_REMATCH[2]}"
 		elif [[ "$line" == *$tmp_script* ]]
 		then
 			printf "Unrecognized ShellCheck output format: %s\n" "$line"
