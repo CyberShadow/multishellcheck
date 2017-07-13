@@ -18,3 +18,7 @@ $ multishellcheck MAIN-FILE-NAME [SHELLCHECK-OPTIONS...]
 ```
 
 If you wish to get colour output, you can enable it with the `-Calways` ShellCheck option.
+
+## In Action
+
+`multishellcheck` is used as part of automatic CI for `aconfmgr`, [a configuration manager for Arch Linux](https://github.com/CyberShadow/aconfmgr) written 100% in Bash.
