@@ -5,6 +5,8 @@
 set -euo pipefail
 shopt -s lastpipe
 
+IFS=$'\n'
+
 if [[ $# -eq 0 ]]
 then
 	echo "Usage: $0 MAIN-FILE-NAME [SHELLCHECK-OPTIONS...]"
@@ -17,13 +19,45 @@ function read_file()
 {
 	local fn=$1
 
-	local lineno=1
+	local dir
+	dir=$(dirname "$fn")
 
+	local lineno=1
+	local source_override=
+
+	local line
 	while read -r line
 	do
-		printf "%s\n" "$line"
-		lines+=("$fn:$lineno")
-		lineno=$((lineno+1))
+		if [[ "$line" =~ ^[[:space:]]*#\ shellcheck\ source=(.*)$ ]]
+		then
+			source_override=${BASH_REMATCH[1]}
+		elif [[ "$line" =~ ^[[:space:]]*source\ ([^#]*)(\#.*)?$ ]]
+		then
+			local src
+			if [[ -n ${source_override:+x} ]]
+			then
+				src=$source_override
+			else
+				src=${BASH_REMATCH[1]}
+			fi
+
+			# if a variable is used only in a source line,
+			# make shellcheck think it is being used
+			printf "echo %s\n" "$line"
+			lines+=("$fn:$lineno")
+			lineno=$((lineno+1))
+
+			src="$dir/$src"
+			if [[ -f "$src" ]]
+			then
+				read_file "$src"
+			fi
+		else
+			source_override=
+			printf "%s\n" "$line"
+			lines+=("$fn:$lineno")
+			lineno=$((lineno+1))
+		fi
 	done < "$fn"
 }
 
